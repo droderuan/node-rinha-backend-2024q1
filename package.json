@@ -1,0 +1,33 @@
+{
+  "name": "rinha_backend_2024q1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/main.ts DB_HOST=localhost",
+    "build": "npx tsc",
+    "start:prod": "node ./build/main.js",
+    "docker:build": "npm run build && docker rmi droderuan/node-rinha-backend-2024 -f && docker build . -t droderuan/node-rinha-backend-2024",
+    "docker:build:no-cache": "npm run build && docker rmi droderuan/node-rinha-backend-2024 -f && docker build --no-cache . -t droderuan/node-rinha-backend-2024",
+    "docker:image:push": "docker push droderuan/node-rinha-backend-2024:latest",
+    "docker:compose": "docker compose down && docker compose up",
+    "api:debit": "bash ./src/test/http/[post]debit-transacao.sh",
+    "apicredit": "bash ./src/test/http/[post]credit-transacao.sh",
+    "api:extrato": "bash ./src/test/http/[get]cliente.sh",
+    "api:test": "./executar-teste-local.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/mysql": "^2.15.25",
+    "nodemon": "^3.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.9.1"
+  }
+}

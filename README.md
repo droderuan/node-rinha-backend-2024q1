@@ -1,0 +1,12 @@
+# Node.Js with express and MySQL
+
+Minha submissão ao desafio Rinha de Backend 2024Q1 da comunidade!
+
+Foi usado:
+
+- Node.Js v20.11
+- Express
+- MySQL DB and mysql2 como conector
+- NGINX como load balance gateway
+
+[![linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/ruan-ferreira-0901/)

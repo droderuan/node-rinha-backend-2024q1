@@ -1,0 +1,73 @@
+import { Router } from 'express'
+import { HttpError } from './HttpError'
+import { HttpStatusCode } from './HttpError.enum'
+import { Transacao, appService } from '../services'
+
+const router = Router()
+
+router.post('/clientes/:id/transacoes', async (req, res, next) => {
+  const { id } = req.params
+  const payload = req.body as { valor: number, tipo: Transacao['tipo'], descricao: string }
+
+  if (!id || !Number(id)) {
+    return res.status(HttpStatusCode.ClientErrorBadRequest).end();
+  }
+
+  if (!payload.descricao || payload.descricao.length < 0 || payload.descricao.length > 10) {
+    return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
+  }
+
+  if (payload.valor <= 0 || !Number.isInteger(payload.valor)) {
+    return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
+  }
+
+  if (!payload.tipo.match(/^[c,d]$/)) {
+    return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
+  }
+
+  try {
+    const chargedCliente = await appService.create({ idCliente: id, amount: payload.valor, description: payload.descricao, type: payload.tipo })
+
+    if (!chargedCliente) {
+      return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
+    }
+
+    const responsePayload = {
+      saldo: chargedCliente.saldo,
+      limite: chargedCliente.limite
+    }
+
+    return res.status(HttpStatusCode.SuccessOK).json(responsePayload);
+
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return res.status(err.statusCode).json(err).end();
+    }
+    return res.status(HttpStatusCode.ServerErrorInternal);
+  }
+})
+
+router.get('/clientes/:id/extrato', async (req, res, next) => {
+  const { id } = req.params
+
+  try {
+    if (!id || !Number(id)) {
+      return res.status(HttpStatusCode.ClientErrorBadRequest);
+    }
+
+    const extrato = await appService.getAllTransacoes(id)
+
+    if (!extrato) {
+      return res.status(HttpStatusCode.ClientErrorNotFound).end();
+    }
+
+    return res.status(HttpStatusCode.SuccessOK).json(extrato);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return res.status(err.statusCode).end();
+    }
+    return res.status(HttpStatusCode.ServerErrorInternal);
+  }
+})
+
+export default router

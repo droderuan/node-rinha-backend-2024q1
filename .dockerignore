@@ -1,0 +1,9 @@
+./load-test
+./src
+./node_modules
+nginx.conf
+dockerfile
+docker-compose.yaml
+init.sql
+executar-teste-local.*
+tsconfig.json
