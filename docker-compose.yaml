@@ -29,7 +29,7 @@ services:
 
   api01: &api
     image: droderuan/node-rinha-backend-2024
-    pull_policy: build
+    # pull_policy: build
     hostname: api01
     restart: always
     command: npm run start:prod

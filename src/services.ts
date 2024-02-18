@@ -88,7 +88,6 @@ class AppService {
 
       return cliente
     } catch (err) {
-      console.log(err)
       await conn.query('ROLLBACK')
       conn.release()
       throw err
