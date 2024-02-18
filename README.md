@@ -1,3 +1,5 @@
+![8g6e2x](https://github.com/droderuan/node-rinha-backend-2024q1/assets/43659888/58908935-3f71-4a74-957d-e21767536894)
+
 # Node.Js with express and MySQL
 
 Minha submissão ao desafio Rinha de Backend 2024Q1 da comunidade!
@@ -10,3 +12,9 @@ Foi usado:
 - NGINX como load balance gateway
 
 [![linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/ruan-ferreira-0901/)
+
+
+
+### A prova de que um dia esta API triunfou no teste de carga.
+
+![image](https://github.com/droderuan/node-rinha-backend-2024q1/assets/43659888/445bfadb-fb60-4f18-a8f3-4750c0e5503b)
