@@ -1,4 +1,4 @@
-import mysql from "mysql2/promise"
+import pg from 'pg';
 
 import { HttpError } from './http/HttpError'
 import { HttpStatusCode } from './http/HttpError.enum'
@@ -19,88 +19,93 @@ interface Transacao {
 }
 
 class AppService {
-  dbPool!: mysql.Pool
+  private dbPool!: pg.Pool
 
   async connectToDb() {
-    const pool = mysql.createPool({
+    const pool = new pg.Pool({
       host: process.env.DB_HOST,
-      user: 'root',
+      user: 'rinha',
       password: 'backend',
       database: 'rinha_backend',
-      port: 3306,
-      waitForConnections: true,
-      connectionLimit: Number(process.env.DB_POOL) || 10,
-      enableKeepAlive: true,
-      idleTimeout: 0
+      port: 5432,
+      max: 15,
+      idleTimeoutMillis: 0,
     })
 
     this.dbPool = pool
+
+    await this.dbPool.query(`
+      PREPARE insert_transacao as
+      INSERT INTO Transacao (idCliente, valor, tipo, descricao, realizada_em)
+      VALUES ($1, $2, $3, $4, NOW());
+    `)
+
+    await this.dbPool.query(`
+      PREPARE get_cliente as
+      SELECT * FROM Cliente where id=$1 FOR UPDATE;
+    `)
   }
 
-  async getAllTransacoes(idCliente: string) {
-    const [result] = await this.dbPool.query(`SELECT * FROM Cliente as c left join Transacao as t on c.id = t.idCliente where c.id=${idCliente} order by t.id DESC , t.realizada_em DESC limit 10;`) as unknown as [any[], string]
+  async obterExtrato(idCliente: string) {
+    const resultado = await this.dbPool.query<Cliente & Transacao>(`SELECT * FROM Cliente as c left join Transacao as t on c.id = t.idCliente where c.id=${idCliente} order by t.id DESC , t.realizada_em DESC limit 10;`)
 
-    if (result.length === 0) {
+    if (resultado.rowCount === 0) {
       return null
     }
 
     return {
       saldo: {
-        total: result[0].saldo,
+        total: resultado.rows[0].saldo,
         data_extrato: new Date(),
-        limite: result[0].limite
+        limite: resultado.rows[0].limite
       },
-      ultimas_transacoes: result[0].realizada_em ? result.map((trans) => ({
+      ultimas_transacoes: resultado.rows[0].realizada_em ? resultado.rows.map((trans) => ({
         valor: trans.valor, descricao: trans.descricao, tipo: trans.tipo, realizada_em: trans.realizada_em
       })) : []
     }
   }
 
-  async create({ idCliente, amount, type, description }: { idCliente: string, amount: number, type: Transacao['tipo'], description: string }) {
-    const conn = await this.dbPool.getConnection()
-    await conn.beginTransaction();
+  async criarTransacao({ idCliente, transacao }: { idCliente: string, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
+    const conn = await this.dbPool.connect()
+    await conn.query('BEGIN')
 
     try {
-      const [customerResult] = await conn.query(`SELECT * FROM Cliente where id=${idCliente} FOR UPDATE;`) as unknown as [Cliente[], string]
+      const valorAoSaldo = this.calcularMudancaSaldo(transacao.valor, transacao.tipo)
+      const resultado = await conn.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${valorAoSaldo}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}');`)
 
-      if (customerResult.length != 1) {
+      if (resultado.rowCount != 1) {
         throw new HttpError(HttpStatusCode.ClientErrorNotFound, 'id not found')
       }
 
-      const customer = customerResult[0]
+      const cliente = resultado.rows[0]
 
-      if (!this.authorized(customer, amount, type)) {
-        throw new HttpError(HttpStatusCode.ClientErrorUnprocessableEntity, '');
+      if (!this.autorizarTransacao(cliente, transacao.tipo)) {
+        throw new HttpError(HttpStatusCode.ClientErrorUnprocessableEntity, 'vai com calma amigao');
       }
 
-      customer.saldo = this.resolveBalance(customer.saldo, amount, type)
-
-      await Promise.all([
-        conn.query(`UPDATE Cliente set saldo=${customer.saldo} where id=${customer.id};`),
-        conn.query(`INSERT INTO Transacao (idCliente, valor, tipo, descricao, realizada_em) VALUES (${customer.id}, ${amount}, "${type}", "${description}", current_timestamp);`)
-      ])
-      await conn.commit()
+      await conn.query('COMMIT')
       conn.release()
 
-      return { ...customer, balance: type === 'c' ? customer.saldo + amount : customer.saldo - amount }
+      return cliente
     } catch (err) {
-      await conn.rollback()
+      console.log(err)
+      await conn.query('ROLLBACK')
       conn.release()
       throw err
     }
   }
 
-  private authorized(customer: Cliente, amount: number, type: Transacao["tipo"]) {
+  private autorizarTransacao(customer: Cliente, type: Transacao["tipo"]) {
     if (type === 'c') return true
     if (type === 'd') {
-      return (Math.abs(customer.saldo) + amount) <= customer.limite
+      return Math.abs(customer.saldo) <= customer.limite
     }
     return false
   }
 
-  private resolveBalance(balance: number, amount: number, type: Transacao["tipo"]) {
-    if (type === 'c') return balance + amount
-    else return balance - amount
+  private calcularMudancaSaldo(valor: number, type: Transacao["tipo"]) {
+    if (type === 'c') return valor
+    else return valor * -1
   }
 }
 

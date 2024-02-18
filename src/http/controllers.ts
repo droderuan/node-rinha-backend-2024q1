@@ -26,15 +26,15 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
   }
 
   try {
-    const chargedCliente = await appService.create({ idCliente: id, amount: payload.valor, description: payload.descricao, type: payload.tipo })
+    const clienteAtualizado = await appService.criarTransacao({ idCliente: id, transacao: payload })
 
-    if (!chargedCliente) {
+    if (!clienteAtualizado) {
       return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
     }
 
     const responsePayload = {
-      saldo: chargedCliente.saldo,
-      limite: chargedCliente.limite
+      saldo: clienteAtualizado.saldo,
+      limite: clienteAtualizado.limite
     }
 
     return res.status(HttpStatusCode.SuccessOK).json(responsePayload);
@@ -43,7 +43,7 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
     if (err instanceof HttpError) {
       return res.status(err.statusCode).json(err).end();
     }
-    return res.status(HttpStatusCode.ServerErrorInternal);
+    return res.status(HttpStatusCode.ServerErrorInternal).end();
   }
 })
 
@@ -55,7 +55,7 @@ router.get('/clientes/:id/extrato', async (req, res, next) => {
       return res.status(HttpStatusCode.ClientErrorBadRequest);
     }
 
-    const extrato = await appService.getAllTransacoes(id)
+    const extrato = await appService.obterExtrato(id)
 
     if (!extrato) {
       return res.status(HttpStatusCode.ClientErrorNotFound).end();
@@ -66,7 +66,7 @@ router.get('/clientes/:id/extrato', async (req, res, next) => {
     if (err instanceof HttpError) {
       return res.status(err.statusCode).end();
     }
-    return res.status(HttpStatusCode.ServerErrorInternal);
+    return res.status(HttpStatusCode.ServerErrorInternal).end();
   }
 })
 
