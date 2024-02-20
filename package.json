@@ -7,6 +7,7 @@
     "dev": "nodemon src/main.ts DB_HOST=localhost",
     "build": "npx tsc",
     "start:prod": "node ./build/main.js",
+    "docker:stats": "docker stats  rinha_backend_2024q1-db-1  rinha_backend_2024q1-api01-1  rinha_backend_2024q1-api02-1 rinha_backend_2024q1-nginx-1",
     "docker:build": "npm run build && docker rmi droderuan/node-rinha-backend-2024 -f && docker build . -t droderuan/node-rinha-backend-2024",
     "docker:build:no-cache": "npm run build && docker rmi droderuan/node-rinha-backend-2024 -f && docker build --no-cache . -t droderuan/node-rinha-backend-2024",
     "docker:image:push": "docker push droderuan/node-rinha-backend-2024:latest",

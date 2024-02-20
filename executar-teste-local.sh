@@ -4,7 +4,7 @@
 
 RESULTS_WORKSPACE="$(pwd)/load-test/user-files/results"
 GATLING_BIN_DIR=$GATLING_HOME/bin
-GATLING_WORKSPACE="$(pwd)/load-test/user-files"
+GATLING_WORKSPACE="$(pwd)/../rinha-de-backend-2024-q1/load-test/user-files"
 
 runGatling() {
     sh $GATLING_BIN_DIR/gatling.sh -rm local -s RinhaBackendCrebitosSimulation \
