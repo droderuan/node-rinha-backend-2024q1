@@ -15,7 +15,7 @@ interface Transacao {
   valor: number
   descricao: string
   tipo: 'c' | 'd'
-  realizada_em: Date
+  realizada_em: string
 }
 
 class AppService {
@@ -33,25 +33,14 @@ class AppService {
     })
 
     this.dbPool = pool
-
-    await this.dbPool.query(`
-      PREPARE insert_transacao as
-      INSERT INTO Transacao (idCliente, valor, tipo, descricao, realizada_em)
-      VALUES ($1, $2, $3, $4, NOW());
-    `)
-
-    await this.dbPool.query(`
-      PREPARE get_cliente as
-      SELECT * FROM Cliente where id=$1 FOR UPDATE;
-    `)
   }
 
-  async obterExtrato(idCliente: string) {
-    const resultado = await this.dbPool.query<Cliente & Transacao>(`SELECT * FROM Cliente as c left join Transacao as t on c.id = t.idCliente where c.id=${idCliente} order by t.id DESC , t.realizada_em DESC limit 10;`)
-
-    if (resultado.rowCount === 0) {
+  async obterExtrato(idCliente: number) {
+    if (idCliente < 1 || idCliente > 5) {
       return null
     }
+
+    const resultado = await this.dbPool.query<Cliente & Transacao>(`SELECT * FROM Cliente as c left join Transacao as t on t.idCliente=${idCliente} where c.id=${idCliente} order by t.id DESC limit 10;`)
 
     return {
       saldo: {
@@ -60,22 +49,22 @@ class AppService {
         limite: resultado.rows[0].limite
       },
       ultimas_transacoes: resultado.rows[0].realizada_em ? resultado.rows.map((trans) => ({
-        valor: trans.valor, descricao: trans.descricao, tipo: trans.tipo, realizada_em: trans.realizada_em
+        valor: trans.valor, descricao: trans.descricao, tipo: trans.tipo, realizada_em: new Date(Number(trans.realizada_em)).toISOString()
       })) : []
     }
   }
 
   async criarTransacao({ idCliente, transacao }: { idCliente: string, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
+    if (Number(idCliente) < 1 || Number(idCliente) > 5) {
+      return null
+    }
+
     const conn = await this.dbPool.connect()
     await conn.query('BEGIN')
 
     try {
       const valorAoSaldo = this.calcularMudancaSaldo(transacao.valor, transacao.tipo)
-      const resultado = await conn.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${valorAoSaldo}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}');`)
-
-      if (resultado.rowCount != 1) {
-        throw new HttpError(HttpStatusCode.ClientErrorNotFound, 'id not found')
-      }
+      const resultado = await conn.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${valorAoSaldo}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}', '${Date.now()}');`)
 
       const cliente = resultado.rows[0]
 

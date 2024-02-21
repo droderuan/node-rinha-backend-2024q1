@@ -55,16 +55,18 @@ router.get('/clientes/:id/extrato', async (req, res, next) => {
       return res.status(HttpStatusCode.ClientErrorBadRequest);
     }
 
-    const extrato = await appService.obterExtrato(id)
+    const extrato = await appService.obterExtrato(Number(id))
 
     if (!extrato) {
       return res.status(HttpStatusCode.ClientErrorNotFound).end();
     }
 
     return res.status(HttpStatusCode.SuccessOK).json(extrato);
-  } catch (err) {
+  } catch (err: any) {
     if (err instanceof HttpError) {
       return res.status(err.statusCode).end();
+    } else if (err.code === '42P01') { // pg -> relation "undefined" does not exist
+      return res.status(HttpStatusCode.ClientErrorNotFound).end();
     }
     return res.status(HttpStatusCode.ServerErrorInternal).end();
   }
