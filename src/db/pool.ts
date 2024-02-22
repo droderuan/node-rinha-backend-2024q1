@@ -35,6 +35,6 @@ class DbPool {
   }
 }
 
-const dbPool = new DbPool(20)
+const dbPool = new DbPool(40)
 
 export { dbPool }

@@ -7,8 +7,9 @@ const router = Router()
 router.post('/clientes/:id/transacoes', async (req, res, next) => {
   const { id } = req.params
   const payload = req.body as { valor: number, tipo: Transacao['tipo'], descricao: string }
+  const idCliente = Number(id)
 
-  if (!id || !Number(id)) {
+  if (!idCliente) {
     return res.status(HttpStatusCode.ClientErrorBadRequest).end();
   }
 
@@ -27,7 +28,7 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
   const clienteAtualizado = await appService.criarTransacao({ idCliente: Number(id), transacao: payload }) as any
 
   if (clienteAtualizado.code) {
-    return res.status(clienteAtualizado?.code).end();
+    return res.status(clienteAtualizado.code).end();
   }
 
   const responsePayload = {

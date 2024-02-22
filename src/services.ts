@@ -17,13 +17,20 @@ interface Transacao {
 }
 
 class AppService {
+
   async obterExtrato(idCliente: number) {
     if (idCliente < 1 || idCliente > 5) {
       return { code: HttpStatusCode.ClientErrorNotFound }
     }
 
-    const clienteResultado = await dbPool.pool.query<Cliente>(`SELECT * FROM Cliente where id=${idCliente};`)
-    const transacoesResultado = await dbPool.pool.query<Transacao>(`SELECT * FROM Transacao where idCliente=${idCliente} order by id DESC limit 10;`)
+    const [clienteResultado, transacoesResultado] = await Promise.all([
+      dbPool.pool.query<Cliente>(`SELECT * FROM Cliente where id=${idCliente};`),
+      dbPool.pool.query<Transacao>(`SELECT * FROM Transacao where idCliente=${idCliente} order by id DESC;`)
+    ])
+
+    if (transacoesResultado.rows?.length > 10) {
+      dbPool.pool.query<Transacao>(`DELETE FROM Transacao where id < ${transacoesResultado.rows[10].id} and idCliente=${idCliente};`)
+    }
 
     return {
       saldo: {
@@ -31,47 +38,46 @@ class AppService {
         data_extrato: new Date(),
         limite: clienteResultado.rows[0].limite
       },
-      ultimas_transacoes: transacoesResultado.rows
+      ultimas_transacoes: transacoesResultado.rows.slice(0, 10).map((trans) => ({ ...trans, realizada_em: new Date(Number(trans.realizada_em)).toISOString() }))
     }
   }
 
-  async criarTransacao({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
-    if (idCliente < 1 || idCliente > 5) {
-      return { code: HttpStatusCode.ClientErrorNotFound }
-    }
+  async credito({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
+    const resultado = await dbPool.pool.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${transacao.valor}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}', '${Date.now()}');`)
+    const cliente = resultado.rows[0]
+    return cliente
+  }
 
+  async debito({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
     const client = await dbPool.getConnection()
     await client.query('BEGIN')
 
-    const valorAoSaldo = this.calcularMudancaSaldo(transacao.valor, transacao.tipo)
-
-    const resultado = await client.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${valorAoSaldo}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}', '${Date.now()}');`)
+    const resultado = await client.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${transacao.valor * -1}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}', '${Date.now()}');`)
     const cliente = resultado.rows[0]
 
-    if (transacao.tipo === 'd' && !this.autorizarTransacao(cliente, transacao.tipo)) {
+    if (!this.autorizarDebito(cliente)) {
       client.query('ROLLBACK').then(() => client.release())
 
       return { code: HttpStatusCode.ClientErrorUnprocessableEntity }
     }
 
-    client.query('COMMIT').then(() => {
-      client.release()
-    })
+    client.query('COMMIT').then(() => client.release())
 
     return cliente
   }
 
-  private autorizarTransacao(customer: Cliente, type: Transacao["tipo"]) {
-    if (type === 'c') return true
-    if (type === 'd') {
-      return Math.abs(customer.saldo) <= customer.limite
+  async criarTransacao({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
+    if (idCliente < 1 || idCliente > 5) return { code: HttpStatusCode.ClientErrorNotFound }
+
+    if (transacao.tipo === 'c') {
+      return this.credito({ idCliente, transacao })
+    } else {
+      return this.debito({ idCliente, transacao })
     }
-    return false
   }
 
-  private calcularMudancaSaldo(valor: number, type: Transacao["tipo"]) {
-    if (type === 'c') return valor
-    else return valor * -1
+  private autorizarDebito(customer: Cliente) {
+    return Math.abs(customer.saldo) <= customer.limite
   }
 }
 
