@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import { HttpError } from './HttpError'
 import { HttpStatusCode } from './HttpError.enum'
 import { Transacao, appService } from '../services'
 
@@ -25,51 +24,34 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
     return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
   }
 
-  try {
-    const clienteAtualizado = await appService.criarTransacao({ idCliente: id, transacao: payload })
+  const clienteAtualizado = await appService.criarTransacao({ idCliente: Number(id), transacao: payload }) as any
 
-    if (!clienteAtualizado) {
-      return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
-    }
-
-    const responsePayload = {
-      saldo: clienteAtualizado.saldo,
-      limite: clienteAtualizado.limite
-    }
-
-    return res.status(HttpStatusCode.SuccessOK).json(responsePayload);
-
-  } catch (err) {
-    if (err instanceof HttpError) {
-      return res.status(err.statusCode).json(err).end();
-    }
-    return res.status(HttpStatusCode.ServerErrorInternal).end();
+  if (clienteAtualizado.code) {
+    return res.status(clienteAtualizado?.code).end();
   }
+
+  const responsePayload = {
+    saldo: clienteAtualizado.saldo,
+    limite: clienteAtualizado.limite
+  }
+  return res.status(HttpStatusCode.SuccessOK).json(responsePayload);
+
 })
 
 router.get('/clientes/:id/extrato', async (req, res, next) => {
   const { id } = req.params
+  const parsedId = Number(id)
 
-  try {
-    if (!id || !Number(id)) {
-      return res.status(HttpStatusCode.ClientErrorBadRequest);
-    }
-
-    const extrato = await appService.obterExtrato(Number(id))
-
-    if (!extrato) {
-      return res.status(HttpStatusCode.ClientErrorNotFound).end();
-    }
-
-    return res.status(HttpStatusCode.SuccessOK).json(extrato);
-  } catch (err: any) {
-    if (err instanceof HttpError) {
-      return res.status(err.statusCode).end();
-    } else if (err.code === '42P01') { // pg -> relation "undefined" does not exist
-      return res.status(HttpStatusCode.ClientErrorNotFound).end();
-    }
-    return res.status(HttpStatusCode.ServerErrorInternal).end();
+  if (!parsedId) {
+    return res.status(HttpStatusCode.ClientErrorBadRequest);
   }
+
+  const extrato = await appService.obterExtrato(parsedId)
+
+  if (extrato.code) {
+    return res.status(extrato.code).end();
+  }
+  return res.status(HttpStatusCode.SuccessOK).json(extrato);
 })
 
 export default router
