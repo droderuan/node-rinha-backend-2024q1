@@ -24,12 +24,13 @@ class AppService {
     }
 
     const [clienteResultado, transacoesResultado] = await Promise.all([
-      dbPool.pool.query<Cliente>(`SELECT * FROM Cliente where id=${idCliente};`),
-      dbPool.pool.query<Transacao>(`SELECT * FROM Transacao where idCliente=${idCliente} order by id DESC;`)
+      dbPool.pool.query<Cliente>(dbPool.queryCliente(idCliente)),
+      dbPool.pool.query<Transacao>(dbPool.queryTransacoes(idCliente))
     ])
 
-    if (transacoesResultado.rows?.length > 10) {
-      dbPool.pool.query<Transacao>(`DELETE FROM Transacao where id < ${transacoesResultado.rows[10].id} and idCliente=${idCliente};`)
+    if (transacoesResultado.rows?.length === 10) {
+      const query = dbPool.queryDeletarTransacoes(transacoesResultado.rows[9].id, idCliente)
+      dbPool.pool.query(query)
     }
 
     return {
@@ -38,21 +39,22 @@ class AppService {
         data_extrato: new Date(),
         limite: clienteResultado.rows[0].limite
       },
-      ultimas_transacoes: transacoesResultado.rows.slice(0, 10).map((trans) => ({ ...trans, realizada_em: new Date(Number(trans.realizada_em)).toISOString() }))
+      ultimas_transacoes: transacoesResultado.rows
     }
   }
 
   async credito({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
-    const resultado = await dbPool.pool.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${transacao.valor}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}', '${Date.now()}');`)
-    const cliente = resultado.rows[0]
-    return cliente
+    const query = dbPool.queryAtualizarSaldoInserirTransacao(idCliente, transacao.valor, transacao.valor, transacao.tipo, transacao.descricao, new Date().toISOString())
+    const resultado = await dbPool.pool.query(query)
+    return resultado.rows[0]
   }
 
   async debito({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
+    const query = dbPool.queryAtualizarSaldoInserirTransacao(idCliente, -1 * transacao.valor, transacao.valor, transacao.tipo, transacao.descricao, new Date().toISOString())
+
     const client = await dbPool.getConnection()
     await client.query('BEGIN')
-
-    const resultado = await client.query(`SELECT * FROM atualizar_saldo_e_inserir_transacao(${idCliente}, ${transacao.valor * -1}, ${transacao.valor}, '${transacao.tipo}', '${transacao.descricao}', '${Date.now()}');`)
+    const resultado = await client.query(query)
     const cliente = resultado.rows[0]
 
     if (!this.autorizarDebito(cliente)) {

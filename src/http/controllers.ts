@@ -8,7 +8,6 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
   const { id } = req.params
   const payload = req.body as { valor: number, tipo: Transacao['tipo'], descricao: string }
   const idCliente = Number(id)
-
   if (!idCliente) {
     return res.status(HttpStatusCode.ClientErrorBadRequest).end();
   }
@@ -24,7 +23,6 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
   if (!payload.tipo.match(/^[c,d]$/)) {
     return res.status(HttpStatusCode.ClientErrorUnprocessableEntity).end();
   }
-
   const clienteAtualizado = await appService.criarTransacao({ idCliente: Number(id), transacao: payload }) as any
 
   if (clienteAtualizado.code) {
@@ -53,6 +51,10 @@ router.get('/clientes/:id/extrato', async (req, res, next) => {
     return res.status(extrato.code).end();
   }
   return res.status(HttpStatusCode.SuccessOK).json(extrato);
+})
+
+router.get('/healthcheck', async (req, res, next) => {
+  return res.status(HttpStatusCode.SuccessOK).send();
 })
 
 export default router

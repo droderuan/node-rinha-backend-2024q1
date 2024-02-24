@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS Transacao (
   valor INT NOT NULL,
   descricao VARCHAR(10) NOT NULL,
   tipo CHAR(1) NOT NULL,
-  realizada_em CHAR(13)
+  realizada_em VARCHAR(24)
 );
 
 CREATE INDEX transacao_idCliente_1_idx ON Transacao (idCliente) WITH (fillfactor = 30);
@@ -26,7 +26,7 @@ VALUES
   (4, 10000000, 0),
   (5, 500000, 0);
 
-CREATE OR REPLACE function atualizar_saldo_e_inserir_transacao(a integer, b integer, c integer, d CHAR(1), e VARCHAR(10), f CHAR(14))
+CREATE OR REPLACE function atualizar_saldo_e_inserir_transacao(a integer, b integer, c integer, d CHAR(1), e VARCHAR(10), f VARCHAR(24))
 RETURNS SETOF Cliente AS $$
 BEGIN
 	RETURN QUERY UPDATE Cliente set saldo=saldo+b where id=a RETURNING *;
