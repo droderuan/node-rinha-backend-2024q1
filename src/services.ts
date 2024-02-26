@@ -28,12 +28,7 @@ class AppService {
       dbPool.pool.query<Transacao>(dbPool.queryTransacoes(idCliente))
     ])
 
-    if (transacoesResultado.rows?.length === 10) {
-      const query = dbPool.queryDeletarTransacoes(transacoesResultado.rows[9].id, idCliente)
-      dbPool.pool.query(query)
-    }
-
-    return {
+    const extrato = {
       saldo: {
         total: clienteResultado.rows[0].saldo,
         data_extrato: new Date(),
@@ -41,31 +36,45 @@ class AppService {
       },
       ultimas_transacoes: transacoesResultado.rows
     }
+
+    if (transacoesResultado.rows?.length < 10) {
+      return extrato
+    }
+
+    const query = dbPool.queryDeletarTransacoes(transacoesResultado.rows[9].id, idCliente)
+    dbPool.pool.query(query)
+
+    return extrato
   }
 
   async credito({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
-    const query = dbPool.queryAtualizarSaldoInserirTransacao(idCliente, transacao.valor, transacao.valor, transacao.tipo, transacao.descricao, new Date().toISOString())
-    const resultado = await dbPool.pool.query(query)
+    const queryAtualizarSaldo = dbPool.queryAtualizarSaldoCredito(idCliente, transacao.valor)
+    const resultado = await dbPool.pool.query(queryAtualizarSaldo)
+
+    const queryInserirCredito = dbPool.queryInserirTransacao(idCliente, transacao.valor, transacao.tipo, transacao.descricao, new Date().toISOString())
+    dbPool.pool.query(queryInserirCredito)
+
     return resultado.rows[0]
   }
 
   async debito({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {
-    const query = dbPool.queryAtualizarSaldoInserirTransacao(idCliente, -1 * transacao.valor, transacao.valor, transacao.tipo, transacao.descricao, new Date().toISOString())
+    const queryAtualizarSaldo = dbPool.queryAtualizarSaldoDebito(idCliente, transacao.valor)
+    const queryInserirCredito = dbPool.queryInserirTransacao(idCliente, transacao.valor, transacao.tipo, transacao.descricao, new Date().toISOString())
 
     const client = await dbPool.getConnection()
+
     await client.query('BEGIN')
-    const resultado = await client.query(query)
+    const resultado = await client.query(queryAtualizarSaldo)
+
     const cliente = resultado.rows[0]
 
-    if (!this.autorizarDebito(cliente)) {
-      client.query('ROLLBACK').then(() => client.release())
-
-      return { code: HttpStatusCode.ClientErrorUnprocessableEntity }
+    if (this.autorizarDebito(cliente)) {
+      client.query(queryInserirCredito).then(() => client.query('COMMIT').then(() => client.release()))
+      return cliente
     }
 
-    client.query('COMMIT').then(() => client.release())
-
-    return cliente
+    client.query('ROLLBACK').then(() => client.release())
+    return { code: HttpStatusCode.ClientErrorUnprocessableEntity }
   }
 
   async criarTransacao({ idCliente, transacao }: { idCliente: number, transacao: { valor: number, tipo: Transacao['tipo'], descricao: string } }) {

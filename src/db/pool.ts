@@ -57,15 +57,31 @@ class DbPool {
     }
   }
 
-  queryAtualizarSaldoInserirTransacao(idCliente: number, valorAoSaldo: number, transacaoValor: number, transacaoTipo: string, transacaoDescricao: string, transacaoDescricaoData: string) {
+  queryAtualizarSaldoCredito(idCliente: number, valorAoSaldo: number) {
     return {
-      name: 'atualizarSaldoInserirTransacao',
-      text: 'SELECT * FROM atualizar_saldo_e_inserir_transacao($1, $2, $3, $4, $5, $6);',
-      values: [idCliente, valorAoSaldo, transacaoValor, transacaoTipo, transacaoDescricao, transacaoDescricaoData]
+      name: 'atualizarSaldoCredito',
+      text: 'UPDATE cliente set saldo=saldo+$2 where id=$1 RETURNING *;',
+      values: [idCliente, valorAoSaldo]
+    }
+  }
+
+  queryInserirTransacao(idCliente: number, transacaoValor: number, transacaoTipo: string, transacaoDescricao: string, transacaoDescricaoData: string) {
+    return {
+      name: 'inserirTransacaoCredito',
+      text: 'INSERT INTO Transacao (idCliente, valor, tipo, descricao, realizada_em) VALUES ($1, $2, $3, $4, $5);',
+      values: [idCliente, transacaoValor, transacaoTipo, transacaoDescricao, transacaoDescricaoData]
+    }
+  }
+
+  queryAtualizarSaldoDebito(idCliente: number, valorAoSaldo: number) {
+    return {
+      name: 'atualizarSaldoDebito',
+      text: 'UPDATE cliente set saldo=saldo-$2 where id=$1 RETURNING *;',
+      values: [idCliente, valorAoSaldo]
     }
   }
 }
 
-const dbPool = new DbPool(40)
+const dbPool = new DbPool(20)
 
 export { dbPool }

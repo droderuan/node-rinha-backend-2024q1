@@ -8,6 +8,7 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
   const { id } = req.params
   const payload = req.body as { valor: number, tipo: Transacao['tipo'], descricao: string }
   const idCliente = Number(id)
+
   if (!idCliente) {
     return res.status(HttpStatusCode.ClientErrorBadRequest).end();
   }
@@ -33,8 +34,7 @@ router.post('/clientes/:id/transacoes', async (req, res, next) => {
     saldo: clienteAtualizado.saldo,
     limite: clienteAtualizado.limite
   }
-  return res.status(HttpStatusCode.SuccessOK).json(responsePayload);
-
+  return res.status(HttpStatusCode.SuccessOK).send(responsePayload);
 })
 
 router.get('/clientes/:id/extrato', async (req, res, next) => {
@@ -45,12 +45,13 @@ router.get('/clientes/:id/extrato', async (req, res, next) => {
     return res.status(HttpStatusCode.ClientErrorBadRequest);
   }
 
-  const extrato = await appService.obterExtrato(parsedId)
+  const extrato = await appService.obterExtrato(parsedId) as any
 
   if (extrato.code) {
     return res.status(extrato.code).end();
   }
-  return res.status(HttpStatusCode.SuccessOK).json(extrato);
+
+  return res.status(HttpStatusCode.SuccessOK).send(extrato);
 })
 
 router.get('/healthcheck', async (req, res, next) => {
